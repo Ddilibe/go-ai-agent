@@ -226,3 +226,17 @@ class Board:
             " ".join(symbols[self.grid[r, c]] for c in range(self.size))
             for r in range(self.size)
         )
+
+    @staticmethod
+    def create_board(
+        size: int,
+        grid: List[List[int]],
+        ko: Optional[Tuple[int, int]] = None,
+        history: List[np.ndarray] = [],
+    ) -> "Board":
+
+        board = Board(size)
+        board.grid = grid
+        board.ko = ko
+        board.history = history
+        return board
