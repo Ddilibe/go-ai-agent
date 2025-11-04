@@ -8,9 +8,9 @@ from typing import Optional, Tuple
 # from ..database.session import get_session, init_db
 
 from .board import Board
-from .agents.mcts_agent import MCTSAgent
-from .agents.random_agent import RandomAgent
-from .agents.heuristic_agent import HeuristicAgent
+from src.agents.mcts_agent import MCTSAgent
+from src.agents.random_agent import RandomAgent
+from src.agents.heuristic_agent import HeuristicAgent
 from .render import AudioMode, render_board, render_video
 
 

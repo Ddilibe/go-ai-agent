@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from go.game import GoGame
+from engine.game import GoGame
 
 if __name__ == "__main__":
     # Human (Black) vs AI (Intermediate)

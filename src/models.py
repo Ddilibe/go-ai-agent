@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 class MessagePart(BaseModel):
     kind: Literal["text", "data", "file"]
     text: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
+    data: Optional[List[Dict[str, Any]]] = None
     file_url: Optional[str] = None
 
 
@@ -18,6 +18,7 @@ class A2AMessage(BaseModel):
     role: Literal["user", "agent", "system"]
     parts: List[MessagePart]
     messageId: str = Field(default_factory=lambda: str(uuid4()))
+    taskId: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
 
 
@@ -53,9 +54,7 @@ class JSONRPCRequest(BaseModel):
 
 class TaskStatus(BaseModel):
     state: Literal["working", "completed", "input-required", "failed"]
-    timestamp: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     message: Optional[A2AMessage] = None
 
 

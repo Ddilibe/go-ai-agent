@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
-import yaml
 import asyncio
 from io import BytesIO
 from uuid import uuid4
-from typing import Dict, List, Optional
+from typing import List, Optional
 from datetime import datetime, timezone
 
-from minio import Minio
 from google import genai
 from google.genai import types
-from google.genai.chats import Content, AsyncChats
+from minio import Minio
 
 from src.engine.game import GoGame
 from src.models import (
@@ -34,17 +32,12 @@ class GoAgent:
     ) -> None:
 
         self.game_state = {}
-        self.chat_state: Dict[str, AsyncChats] = {}
 
         self.minio_client = Minio(
             minio_endpoint,
             access_key=minio_access_key,
             secret_key=minio_secret_key,
             secure=False,
-        )
-
-        self.model_client = genai.Client(
-            api_key=google_gemini_api_key,
         )
 
         # if not self.minio_client.bucket_exists(minio_bucket):
@@ -60,41 +53,6 @@ class GoAgent:
         task_id: str,
         config: Optional[MessageConfiguration],
     ) -> TaskResult:
-
-        system_prompt: str
-
-        with open("agent.yaml", "r") as file:
-            system_prompt = yaml.load(file, yaml.FullLoader)
-
-        a2a_message = messages[-1] if isinstance(messages, list) else messages
-        message = (
-            a2a_message.parts[-1]
-            if isinstance(a2a_message.parts, list)
-            else a2a_message.parts
-        )
-
-        # self.model_client.
-
-        asyncconfig = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.7,
-        )
-        
-        content = [
-            types.Content(
-                role="system",
-                parts=[types.Part(text=system_prompt)],
-            ),
-            types.Content(role="user", parts=[types.Part(text=message.text)]),
-        ]
-
-        if self.chat_state.get(context_id):
-            self.chat_state[context_id] = self.model_client.models.generate_content(
-                model="gemini-2.5-flash", contents=content
-            )
-
-        chat: AsyncChats = self.chat_state[context_id]
-
         return TaskResult(
             id=str(uuid4()),
             contextId=str(uuid4()),

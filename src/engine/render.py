@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+from string import ascii_uppercase
 from enum import StrEnum
 
 from PIL import Image, ImageDraw, ImageFont
@@ -23,14 +24,17 @@ def render_board(board: Board, step: int, move, output_dir: str):
     margin = 20
     img_size = size * cell + 2 * margin
 
-    img = Image.new("RGB", (img_size, img_size), (230, 180, 100))
+    img = Image.new("RGB", (img_size + 20, img_size + 20), (230, 180, 100))
     draw = ImageDraw.Draw(img)
 
     # Draw grid
     for i in range(size):
         xy = margin + i * cell
-        draw.line([(margin, xy), (img_size - margin, xy)], fill="black")
-        draw.line([(xy, margin), (xy, img_size - margin)], fill="black")
+        draw.line([(margin, xy), (img_size - (margin * 2), xy)], fill="black")
+        draw.line([(xy, margin), (xy, img_size - (margin * 2))], fill="black")
+
+        draw.text(((img_size - margin), xy), fill="black", text=ascii_uppercase[i])
+        draw.text((xy, img_size - margin), text=f"{i+1}", fill="black")
 
     # Draw stones
     for r in range(size):
@@ -99,7 +103,7 @@ def render_video(
     if not os.path.exists(audio_file):
         raise MusicFileNotFoundError(audio_file)
     audio = AudioFileClip(audio_file).subclip(0, clip.duration)
-    
+
     output_path = f"videos/{images_dir.split("/")[-2]}.mp4"
     if os.path.exists(audio_file):
         print(f"🎵 Adding background music: {audio_file}")
@@ -107,7 +111,7 @@ def render_video(
 
         if audio.duration < clip.duration:
             loops = int(clip.duration // audio.duration) + 1
-            final_audio = concatenate_audioclips([audio] * loops).subclip(0, clip.duration) # type: ignore
+            final_audio = concatenate_audioclips([audio] * loops).subclip(0, clip.duration)  # type: ignore
         else:
             final_audio = audio.subclip(0, clip.duration)
 
@@ -119,7 +123,7 @@ def render_video(
     print(f"📀 Exporting video to {output_path} ...")
     if clip:
         clip.write_videofile(output_path, codec="libx264", audio_codec="aac", fps=fps)
-        print("✅ Video created successfully!") 
+        print("✅ Video created successfully!")
         return
 
     print(f"❌ Error Saving {output_path}")

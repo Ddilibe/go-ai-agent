@@ -1,8 +1,10 @@
 # src/go/board.py
 from __future__ import annotations
-from typing import List, Optional, Set, Tuple
-import numpy as np
+
 import copy
+from typing import List, Optional, Set, Tuple
+
+import numpy as np
 
 """
 Board representation for the game of Go.
@@ -18,8 +20,8 @@ class Board:
     def __init__(self, size: int = 9):
         self.size = size
         self.grid = np.zeros((size, size), dtype=np.int8)
-        self.ko: Optional[Tuple[int, int]] = None  # position forbidden due to ko
-        self.history: List[np.ndarray] = []  # used for ko/position repetition
+        self.ko: Optional[Tuple[int, int]] = None
+        self.history: List[np.ndarray] = []
 
     # -------------------------------------------------------------------------
     # Basic helpers
