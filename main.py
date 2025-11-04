@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import asyncio
 from typing import AsyncGenerator, Any
 from contextlib import asynccontextmanager
 
@@ -11,31 +12,40 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.ai import GoAgent
 from src.engine.game import GoGame
 from src.logger import setup_logger
-from src.models import JSONRPCRequest, JSONRPCResponse
+from src.manager import ToolsManager
+from src.models import JSONRPCRequest, JSONRPCResponse, A2AMessage, MessagePart
 
 # from src.ai_session.main import run
 
 agent: GoAgent
+manager: ToolsManager
 logger = setup_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
 
-    global agent
+    global agent, manager
 
     agent = GoAgent(
         str(config("MINIO_ENDPOINT")),
         str(config("MINIO_ACCESS_KEY")),
         str(config("MINIO_SECRET_KEY")),
         str(config("MINIO_BUCKET")),
-        "",
+        str(config("GOOGLE_API_KEY")),
+    )
+
+    manager = ToolsManager(
+        """{"name":"go"}""", agent.minio_client, agent.minio_bucket, {}, ""
     )
 
     yield
 
     if agent:
         await agent.cleanup()
+
+    if manager:
+        await manager.cleanup()
 
 
 web = FastAPI(
@@ -55,6 +65,7 @@ web.add_middleware(
 )
 
 
+@web.post("/tool")
 @web.post("/rpc")
 async def rpc_endpoint(req: Request):
     """RPC Endpoint for Go Agent"""
@@ -87,8 +98,12 @@ async def rpc_endpoint(req: Request):
             context_id = rpc_request.params.contextId  # type: ignore
             task_id = rpc_request.params.contextId  # type: ignore
 
-        result = await agent.process_messages(
-            messages=messages, context_id=context_id, task_id=task_id, config=config  # type: ignore
+        result = await manager.process_messages(
+            # user_id=rpc_request.id,
+            messages=messages,
+            context_id=context_id,
+            task_id=task_id,
+            config=config,  # type: ignore
         )
 
         response = JSONRPCResponse(id=rpc_request.id, result=result)
@@ -100,7 +115,7 @@ async def rpc_endpoint(req: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=dict(
                 jsonrpc="2.0",
-                id=body.get("id") if "body" in locals() else None,
+                id=body.get("id") if "body" in locals() else None,  # type: ignore
                 error=dict(
                     code=-32603, message="Internal error", data=dict(details=str(e))
                 ),
@@ -114,11 +129,45 @@ async def health_check():
     return {"status": "healthy", "agent": "Go"}
 
 
-def main():
+async def main():
+    """Initializes the GoAgent and enters the main input/process loop."""
     print("Hello from go-agent!")
+    try:
+        agent = GoAgent(
+            str(config("MINIO_ENDPOINT")),
+            str(config("MINIO_ACCESS_KEY")),
+            str(config("MINIO_SECRET_KEY")),
+            str(config("MINIO_BUCKET")),
+            str(config("GOOGLE_API_KEY")),
+        )
+    except Exception as e:
+        print(f"Error initializing GoAgent with configuration: {e}")
+        return
+
+    print("GoSifu Agent Initialized. Type 'exit' to quit.")
+
+    value = input("What do you want to do? ")
+
+    while value.lower() != "exit":
+
+        if value.lower() == "exit":
+            break
+
+        message = A2AMessage(
+            kind="message", role="user", parts=[MessagePart(kind="text", text=value)]
+        )
+
+        try:
+            result = await agent.process_messages(
+                "string", messages=message, context_id="", task_id="", config=None
+            )
+            print(f"Agent Response: {result}")
+
+        except Exception as e:
+            print(f"An error occurred during message processing: {e}")
+
+        value = input("What do you want to do? ")
 
 
 if __name__ == "__main__":
-    game = GoGame(board_size=19, black="intermediate", white="hard", output_dir="cache")
-    game.play()
-    # run()
+    asyncio.run(main())

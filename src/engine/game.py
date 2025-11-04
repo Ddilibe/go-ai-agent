@@ -29,9 +29,10 @@ class GoGame:
         white: str = "beginner",
         output_dir: str = "cache",
     ):
+        self.__id = uuid4()
         self.board = Board(board_size)
         self.board_size = board_size
-        self.output_dir = f"{output_dir}/{uuid4()}/"
+        self.output_dir = f"{output_dir}/{self.id}/"
         self.turn = 1  # 1 = black, 2 = white
         self.passes = 0
 
@@ -45,6 +46,10 @@ class GoGame:
         #     board_size,
         #     f"{black}:{self.black_agent} - {white}{self.white_agent}",
         # )
+
+    @property
+    def id(self) -> str:
+        return str(self.__id)
 
     def _init_agent(self, name: str, color: int):
         if name.lower() == "human":
@@ -78,27 +83,21 @@ class GoGame:
                 move = agent.select_move(self.board.grid, legal_moves)
                 print(f"AI ({agent.__class__.__name__}) chose: {move}")
 
-            # Apply move
             valid = self.board.place_stone(player_color, move)
             if not valid:
                 print("Illegal move, skipping.")
                 move = None
 
-            # Render current board
             render_board(self.board, step, move, self.output_dir)
 
-            # Handle pass detection
             if move is None:
                 self.passes += 1
             else:
                 self.passes = 0
 
-            # Next turn
             self.turn = 3 - self.turn
             step += 1
-            # save_move(self.session, self.db_game.id, move_num, current_color, move)
 
-        # Game finished
         black_score, white_score = self.board.score()
         print("\nGame Over!")
         print(self.board)
@@ -109,7 +108,7 @@ class GoGame:
             else "White" if white_score > black_score else "Draw"
         )
         print(f"Winner: {winner}")
-        # update_game_winner(self.session, self.db_game.id, winner)  # type: ignore
+        #
         render_video(
             self.output_dir,
             "media/Teresa Teng - 月亮代表我的心.mp3",
@@ -163,4 +162,5 @@ class GoGame:
             "status": "ok",
             "move": move,
             "board": os.path.join(self.output_dir, f"step_{step:04d}.png"),
+            "message": f"I played {move}"
         }

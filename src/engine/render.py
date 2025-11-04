@@ -17,7 +17,7 @@ class AudioMode(StrEnum):
     NONE = "none"
 
 
-def render_board(board: Board, step: int, move, output_dir: str):
+def render_board(board: Board, step: int, move, output_dir: str = "cache"):
     os.makedirs(output_dir, exist_ok=True)
     size = board.size
     cell = 40
@@ -65,7 +65,10 @@ def render_board(board: Board, step: int, move, output_dir: str):
             outline="black",
         )
 
-    img.save(os.path.join(output_dir, f"step_{step:04d}.png"))
+    img_path = os.path.join(output_dir, f"step_{step:04d}.png")
+    img.save(img_path)
+
+    return img_path
 
 
 def render_video(

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import yaml
 import asyncio
+import logging
 from io import BytesIO
 from uuid import uuid4
 from typing import Dict, List, Optional
@@ -11,6 +12,7 @@ from google import genai
 from google.genai import types
 from google.genai.chats import Content, AsyncChats
 
+from .tools import ALL_TOOLS
 from src.engine.game import GoGame
 from src.models import (
     A2AMessage,
@@ -20,6 +22,8 @@ from src.models import (
     MessagePart,
     MessageConfiguration,
 )
+
+logger = logging.getLogger('go_agent')
 
 
 class GoAgent:
@@ -55,6 +59,7 @@ class GoAgent:
 
     async def process_messages(
         self,
+        user_id: str,
         messages: List[A2AMessage] | A2AMessage,
         context_id: str,
         task_id: str,
@@ -62,6 +67,8 @@ class GoAgent:
     ) -> TaskResult:
 
         system_prompt: str
+        tools = types.Tool(function_declarations=[*ALL_TOOLS.values()])
+        aconfig = types.GenerateContentConfig(tools=[tools])
 
         with open("agent.yaml", "r") as file:
             system_prompt = yaml.load(file, yaml.FullLoader)
@@ -73,33 +80,32 @@ class GoAgent:
             else a2a_message.parts
         )
 
-        # self.model_client.
+        user_prompt = f"The gameid is {user_id if user_id in self.game_state.keys() else None} {message.text}"
 
-        asyncconfig = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            temperature=0.7,
-        )
-        
         content = [
             types.Content(
                 role="system",
                 parts=[types.Part(text=system_prompt)],
             ),
-            types.Content(role="user", parts=[types.Part(text=message.text)]),
+            types.Content(role="user", parts=[types.Part(text=user_prompt)]),
         ]
 
-        if self.chat_state.get(context_id):
-            self.chat_state[context_id] = self.model_client.models.generate_content(
-                model="gemini-2.5-flash", contents=content
-            )
-
-        chat: AsyncChats = self.chat_state[context_id]
+        response = self.model_client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=content,
+            config=aconfig,
+        )
+        
+        
+        tool_call = response.candidates[0].content.parts[].function_call
+        
+        tool = ALL_TOOLS.get(tool_call)
 
         return TaskResult(
-            id=str(uuid4()),
-            contextId=str(uuid4()),
+            id=str(user_id),
+            contextId=str(context_id),
             artifacts=[],
-            history=[],
+            history=[messages] if isinstance(messages, A2AMessage) else messages,
             kind="task",
             status=TaskStatus(state="working"),
         )
