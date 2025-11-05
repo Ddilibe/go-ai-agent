@@ -68,9 +68,11 @@ class TaskResult(BaseModel):
     id: str
     contextId: str
     status: TaskStatus
+    messageId: str = Field(default_factory=lambda: str(uuid4()))
     artifacts: List[Artifact] = []
     history: List[A2AMessage] = []
-    kind: Literal["task"] = "task"
+    kind: Literal["task", "message"] = "task"
+    role: Literal["user", "agent", "system"]
 
 
 class JSONRPCResponse(BaseModel):

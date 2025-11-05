@@ -131,6 +131,7 @@ class GoAgent:
             contextId=str(context_id),
             artifacts=arts,
             history=history,
-            kind="task",
+            kind="message",
+            role="agent",
             status=TaskStatus(state="working"),
         )

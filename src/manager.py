@@ -6,6 +6,7 @@ from json import JSONDecodeError
 from typing import List, Any, Dict, Optional, Tuple
 
 from minio import Minio
+import cloudinary.uploader
 
 from src.engine.game import GoGame
 from src.models import (
@@ -173,7 +174,8 @@ class ToolsManager:
         ai_move = board.play_step()
 
         board_svg, _ = get_game_status(board)
-        board_url = await self._upload_board_image(board_svg, context_id, task_id)
+        image_response = await self._upload_board_image(board_svg)
+        board_url = image_response["url"] if image_response.get("url") else ""
 
         response_text = f"I played {ai_move['message']}"
 
@@ -206,35 +208,49 @@ class ToolsManager:
             id=task_id,
             contextId=context_id,
             status=TaskStatus(state=state, message=response_message),
+            role="agent",
             artifacts=artifacts,
             history=history,
         )
 
     async def _upload_board_image(
-        self, filename: str, context_id: str, task_id: str
-    ) -> str:
-        """Upload board image to MinIO and return URL"""
+        self,
+        file_path: str,
+        folder: str = "go_game_boards",
+        public_id: Optional[str] = None,
+        overwrite: bool = True,
+    ) -> Dict:
+        """
+        Uploads an image file to Cloudinary.
+
+        Args:
+            file_path (str): Local path to the image file.
+            folder (str): Cloudinary folder to store the image in.
+            public_id (Optional[str]): Custom name for the uploaded file (without extension).
+            overwrite (bool): Whether to overwrite if file exists.
+
+        Returns:
+            Dict: Upload result containing 'url', 'public_id', 'secure_url', etc.
+        """
         try:
-            # Convert SVG to PNG
-            file = open(filename, "+br")
-            png_data = file.read()
-            file.close()
-
-            # Upload to MinIO
-            object_name = f"{context_id}/{task_id}.png"
-            self.minio_client.put_object(
-                "chess-boards",
-                object_name,
-                BytesIO(png_data),
-                len(png_data),
-                content_type="image/png",
+            result = cloudinary.uploader.upload(
+                file_path,
+                folder=folder,
+                public_id=public_id,
+                overwrite=overwrite,
+                resource_type="image",
+                use_filename=True,
+                unique_filename=True,
             )
-
-            # Return public URL
-            return f"http://{self.minio_client._base_url.netloc}/chess-boards/{object_name}"
+            return {
+                "url": result.get("secure_url"),
+                "public_id": result.get("public_id"),
+                "width": result.get("width"),
+                "height": result.get("height"),
+                "format": result.get("format"),
+            }
         except Exception as e:
-            print(f"Image upload error: {e}")
-            return ""
+            raise RuntimeError(f"Cloudinary upload failed: {e}")
 
     async def cleanup(self):
         """Cleanup resources"""

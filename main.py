@@ -4,6 +4,7 @@ import asyncio
 from typing import AsyncGenerator, Any
 from contextlib import asynccontextmanager
 
+import cloudinary
 from decouple import config
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, Request, status
@@ -33,6 +34,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         str(config("MINIO_SECRET_KEY")),
         str(config("MINIO_BUCKET")),
         str(config("GOOGLE_API_KEY")),
+    )
+
+    cloudinary.config(
+        cloud_name=str(config("CLOUDINARY_CLOUD_NAME", "")),
+        api_key=str(config("CLOUDINARY_API_KEY", "")),
+        api_secret=str(config("CLOUDINARY_API_SECRET", "")),
+        secure=True,
     )
 
     # manager = ToolsManager(
@@ -70,59 +78,58 @@ web.add_middleware(
 async def rpc_endpoint(req: Request):
     """RPC Endpoint for Go Agent"""
 
-    # try:
-    body = await req.json()
+    try:
+        body = await req.json()
 
-    if body.get("jsonrpc") != "2.0" or "id" not in body:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "jsonrpc": "2.0",
-                "id": body.get("id"),
-                "error": {
-                    "code": -32600,
-                    "message": "Invalid Request: jsonrpc must be '2.0' and id is required",
+        if body.get("jsonrpc") != "2.0" or "id" not in body:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "jsonrpc": "2.0",
+                    "id": body.get("id"),
+                    "error": {
+                        "code": -32600,
+                        "message": "Invalid Request: jsonrpc must be '2.0' and id is required",
+                    },
                 },
-            },
+            )
+
+        rpc_request = JSONRPCRequest(**body)
+
+        messages, context_id, task_id, config = [], None, None, None
+
+        if rpc_request.method == "message/send" and rpc_request.params:
+            messages = [rpc_request.params.message]  # type: ignore
+            config = rpc_request.params.configuration  # type: ignore
+        elif rpc_request.method == "execute":
+            messages = rpc_request.params.message  # type: ignore
+            context_id = rpc_request.params.contextId  # type: ignore
+            task_id = rpc_request.params.contextId  # type: ignore
+
+        result = await agent.process_messages(
+            user_id=rpc_request.id,
+            messages=messages,
+            context_id=context_id,
+            task_id=task_id,
+            config=config,  # type: ignore
         )
 
-    rpc_request = JSONRPCRequest(**body)
+        response = JSONRPCResponse(id=rpc_request.id, result=result)
 
-    messages, context_id, task_id, config = [], None, None, None
+        return response.model_dump()
 
-    if rpc_request.method == "message/send" and rpc_request.params:
-        messages = [rpc_request.params.message]  # type: ignore
-        config = rpc_request.params.configuration  # type: ignore
-    elif rpc_request.method == "execute":
-        messages = rpc_request.params.message  # type: ignore
-        context_id = rpc_request.params.contextId  # type: ignore
-        task_id = rpc_request.params.contextId  # type: ignore
-
-    result = await agent.process_messages(
-        user_id=rpc_request.id,
-        messages=messages,
-        context_id=context_id,
-        task_id=task_id,
-        config=config,  # type: ignore
-    )
-
-    response = JSONRPCResponse(id=rpc_request.id, result=result)
-
-    return response.model_dump()
-
-
-# except Exception as e:
-#     logger.error(f"Error from rpc endpoint: {e}")
-#     return JSONResponse(
-#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#         content=dict(
-#             jsonrpc="2.0",
-#             id=body.get("id") if "body" in locals() else None,  # type: ignore
-#             error=dict(
-#                 code=-32603, message="Internal error", data=dict(details=str(e))
-#             ),
-#         ),
-#     )
+    except Exception as e:
+        logger.error(f"Error from rpc endpoint: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=dict(
+                jsonrpc="2.0",
+                id=body.get("id") if "body" in locals() else None,  # type: ignore
+                error=dict(
+                    code=-32603, message="Internal error", data=dict(details=str(e))
+                ),
+            ),
+        )
 
 
 @web.get("/health")

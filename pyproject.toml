@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.17.1",
     "cairosvg>=2.8.2",
+    "cloudinary>=1.44.1",
     "fastapi>=0.120.3",
     "google-genai>=1.47.0",
     "kernel>=0.18.0",
@@ -16,6 +17,7 @@ dependencies = [
     "pillow>=12.0.0",
     "pydantic>=2.12.3",
     "python-decouple>=3.8",
+    "python-multipart>=0.0.20",
     "python-telegram-bot[all,ext]>=22.5",
     "pyyaml>=6.0.3",
     "sqlmodel>=0.0.27",
