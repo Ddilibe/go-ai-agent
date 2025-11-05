@@ -81,9 +81,10 @@ class GoAgent:
         with open("src/config/agents.yaml", "r") as file:
             system_prompt = yaml.load(file, yaml.Loader)  # type: ignore
 
-        a2a_message = messages[-1] if isinstance(messages, list) else messages
+        a2a_message = messages[0] if isinstance(messages, list) else messages
+
         message = (
-            a2a_message.parts[-1]
+            a2a_message.parts[0]
             if isinstance(a2a_message.parts, list)
             else a2a_message.parts
         )

@@ -38,6 +38,7 @@ class ToolsManager:
             )
         else:
             self.response: Dict[str, str | Dict[str, str | int]] = json.loads(response)
+        print(self.response)
         self.kwargs = kwargs
         self.minio_client = Minio_Client
         self.minio_bucket = minio_bucket
@@ -54,6 +55,7 @@ class ToolsManager:
         tool_args = self.response.get("args")
         match self.response.get("tool_name"):
             case "make_move":
+                print("calling make move")
                 arguments = [
                     tool_args.get(i)
                     for i in [
@@ -70,10 +72,12 @@ class ToolsManager:
                 a2amessage.parts.append(
                     MessagePart(kind="text", text=f"Placed a {tool_args}")
                 )
+                return (a2amessage, arts)
 
             case "get_game_status":
+                print("Calling get_game status")
                 value = get_game_status(game=self.game[self.id])
-                
+
                 image_response = await self._upload_board_image(value[0])
                 url = image_response["url"] if image_response.get("url") else ""
 
@@ -86,8 +90,10 @@ class ToolsManager:
                         name="display", parts=[MessagePart(kind="file", file_url=url)]
                     )
                 )
+                return (a2amessage, arts)
 
             case "start_game":
+                print("calling Start Game")
                 arguments = [tool_args.get(i) for i in ["boardsize", "black", "white"]]
                 value = start_game(
                     arguments[0], arguments[1], arguments[2], self.id, self.game
@@ -96,7 +102,7 @@ class ToolsManager:
                 a2amessage.parts.append(
                     MessagePart(kind="text", text="Initiated new game")
                 )
-
+                return (a2amessage, arts)
             case _:
                 pass
 
