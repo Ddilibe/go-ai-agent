@@ -44,7 +44,7 @@ class ToolsManager:
         self.game = game_dict
         self.id = id
 
-    def __call__(
+    async def __call__(
         self, *args: List[Any], **kwds: Dict[Any, Any]
     ) -> Tuple[A2AMessage, List[Artifact]]:
 
@@ -73,19 +73,10 @@ class ToolsManager:
 
             case "get_game_status":
                 value = get_game_status(game=self.game[self.id])
-                object_name = f"{uuid4()}.png"
+                
+                image_response = await self._upload_board_image(value[0])
+                url = image_response["url"] if image_response.get("url") else ""
 
-                try:
-                    url = self.kwargs["minio"].fput_object(
-                        self.kwargs["bucket_name"],
-                        f"{uuid4()}.png",
-                        value[0],
-                        content_type="image/jpeg",
-                    )
-                except Exception as err:
-                    print(f"Error ")
-
-                url = f"http://{self.minio_client._base_url}/{self.minio_bucket}/{object_name}"
                 a2amessage.parts.append(
                     MessagePart(kind="text", text=f"Displayed game {self.id}")
                 )

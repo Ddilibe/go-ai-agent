@@ -118,7 +118,7 @@ class GoAgent:
             user_id,
             {"taskId": task_id, "id": user_id},
         )
-        a2amessage, arts = manager()
+        a2amessage, arts = await manager()
 
         history = messages + [a2amessage]
 
