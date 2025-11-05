@@ -69,6 +69,9 @@ class GoAgent:
         config: Optional[MessageConfiguration],
     ) -> TaskResult:
 
+        if user_id not in self.game_state:
+            self.game_state[user_id] = GoGame()
+
         system_prompt: str
         tools = types.Tool(
             # function_declarations=[*ALL_TOOLS.values()]
@@ -105,19 +108,19 @@ class GoAgent:
 
         # print(response)
 
-        tool_call = response.candidates[0].content.parts[0].text
+        tool_call = response.text
 
         manager = ToolsManager(
             tool_call,
             self.minio_client,
             self.minio_bucket,
             self.game_state,
-            self.game_state.get(user_id),
-            {"taskId": task_id}
+            user_id,
+            {"taskId": task_id, "id": user_id},
         )
         a2amessage, arts = manager()
 
-        history = messages + a2amessage
+        history = messages + [a2amessage]
 
         # state = "input-required" if not self.game_state[id].board.is_game_over() else "completed"
 

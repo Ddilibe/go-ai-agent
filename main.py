@@ -18,14 +18,14 @@ from src.models import JSONRPCRequest, JSONRPCResponse, A2AMessage, MessagePart
 # from src.ai_session.main import run
 
 agent: GoAgent
-manager: ToolsManager
+# manager: ToolsManager
 logger = setup_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
 
-    global agent, manager
+    global agent
 
     agent = GoAgent(
         str(config("MINIO_ENDPOINT")),
@@ -35,17 +35,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[Any, Any]:
         str(config("GOOGLE_API_KEY")),
     )
 
-    manager = ToolsManager(
-        """{"name":"go"}""", agent.minio_client, agent.minio_bucket, {}, ""
-    )
+    # manager = ToolsManager(
+    #     """{"name":"go"}""", agent.minio_client, agent.minio_bucket, {}, ""
+    # )
 
     yield
 
     if agent:
         await agent.cleanup()
 
-    if manager:
-        await manager.cleanup()
+    # if manager:
+    #     await manager.cleanup()
 
 
 web = FastAPI(
@@ -70,57 +70,59 @@ web.add_middleware(
 async def rpc_endpoint(req: Request):
     """RPC Endpoint for Go Agent"""
 
-    try:
-        body = await req.json()
+    # try:
+    body = await req.json()
 
-        if body.get("jsonrpc") != "2.0" or "id" not in body:
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "jsonrpc": "2.0",
-                    "id": body.get("id"),
-                    "error": {
-                        "code": -32600,
-                        "message": "Invalid Request: jsonrpc must be '2.0' and id is required",
-                    },
-                },
-            )
-
-        rpc_request = JSONRPCRequest(**body)
-
-        messages, context_id, task_id, config = [], None, None, None
-
-        if rpc_request.method == "message/send" and rpc_request.params:
-            messages = [rpc_request.params.message]  # type: ignore
-            config = rpc_request.params.configuration  # type: ignore
-        elif rpc_request.method == "execute":
-            messages = rpc_request.params.message  # type: ignore
-            context_id = rpc_request.params.contextId  # type: ignore
-            task_id = rpc_request.params.contextId  # type: ignore
-
-        result = await manager.process_messages(
-            # user_id=rpc_request.id,
-            messages=messages,
-            context_id=context_id,
-            task_id=task_id,
-            config=config,  # type: ignore
-        )
-
-        response = JSONRPCResponse(id=rpc_request.id, result=result)
-
-        return response.model_dump()
-    except Exception as e:
-        logger.error(f"Error from rpc endpoint: {e}")
+    if body.get("jsonrpc") != "2.0" or "id" not in body:
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=dict(
-                jsonrpc="2.0",
-                id=body.get("id") if "body" in locals() else None,  # type: ignore
-                error=dict(
-                    code=-32603, message="Internal error", data=dict(details=str(e))
-                ),
-            ),
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "jsonrpc": "2.0",
+                "id": body.get("id"),
+                "error": {
+                    "code": -32600,
+                    "message": "Invalid Request: jsonrpc must be '2.0' and id is required",
+                },
+            },
         )
+
+    rpc_request = JSONRPCRequest(**body)
+
+    messages, context_id, task_id, config = [], None, None, None
+
+    if rpc_request.method == "message/send" and rpc_request.params:
+        messages = [rpc_request.params.message]  # type: ignore
+        config = rpc_request.params.configuration  # type: ignore
+    elif rpc_request.method == "execute":
+        messages = rpc_request.params.message  # type: ignore
+        context_id = rpc_request.params.contextId  # type: ignore
+        task_id = rpc_request.params.contextId  # type: ignore
+
+    result = await agent.process_messages(
+        user_id=rpc_request.id,
+        messages=messages,
+        context_id=context_id,
+        task_id=task_id,
+        config=config,  # type: ignore
+    )
+
+    response = JSONRPCResponse(id=rpc_request.id, result=result)
+
+    return response.model_dump()
+
+
+# except Exception as e:
+#     logger.error(f"Error from rpc endpoint: {e}")
+#     return JSONResponse(
+#         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#         content=dict(
+#             jsonrpc="2.0",
+#             id=body.get("id") if "body" in locals() else None,  # type: ignore
+#             error=dict(
+#                 code=-32603, message="Internal error", data=dict(details=str(e))
+#             ),
+#         ),
+#     )
 
 
 @web.get("/health")

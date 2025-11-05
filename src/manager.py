@@ -5,7 +5,6 @@ from uuid import uuid4
 from json import JSONDecodeError
 from typing import List, Any, Dict, Optional, Tuple
 
-import cairosvg
 from minio import Minio
 
 from src.engine.game import GoGame
@@ -85,7 +84,7 @@ class ToolsManager:
                 except Exception as err:
                     print(f"Error ")
 
-                url = f"http://{self.minio_client._base_url.netloc}/{self.minio_bucket}/{object_name}"
+                url = f"http://{self.minio_client._base_url}/{self.minio_bucket}/{object_name}"
                 a2amessage.parts.append(
                     MessagePart(kind="text", text=f"Displayed game {self.id}")
                 )
@@ -101,7 +100,7 @@ class ToolsManager:
                 value = start_game(
                     arguments[0], arguments[1], arguments[2], self.id, self.game
                 )
-                self.kwargs[self.kwargs["id"]] = value
+                self.kwargs[self.id] = value
                 a2amessage.parts.append(
                     MessagePart(kind="text", text="Initiated new game")
                 )
@@ -212,12 +211,14 @@ class ToolsManager:
         )
 
     async def _upload_board_image(
-        self, svg_content: str, context_id: str, task_id: str
+        self, filename: str, context_id: str, task_id: str
     ) -> str:
         """Upload board image to MinIO and return URL"""
         try:
             # Convert SVG to PNG
-            png_data = cairosvg.svg2png(bytestring=svg_content.encode())
+            file = open(filename, "+br")
+            png_data = file.read()
+            file.close()
 
             # Upload to MinIO
             object_name = f"{context_id}/{task_id}.png"
